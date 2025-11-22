@@ -12,7 +12,6 @@ impl PappapChain {
     pub async fn new() -> Self {
         let snn = Arc::new(SNNCore::new());
         let bus = Arc::new(MessageBus::new());
-        // Key đúng 32 byte
         let key: [u8; 32] = *b"pappap2025snnblockchainkey32b!\0\0";
         let crypto = Arc::new(CryptoEngine::new(&key));
 
@@ -24,15 +23,15 @@ impl PappapChain {
     pub async fn run(self) {
         managers::start_all(self.snn.clone(), self.bus.clone(), self.crypto.clone());
 
-        let snn = self.snn.clone();
+        let snn_clone = self.snn.clone();
         tokio::spawn(async move {
             HttpServer::new(move || {
                 App::new()
-                    .app_data(web::Data::new(snn.clone()))
+                    .app_data(web::Data::new(snn_clone.clone()))
                     .service(web::resource("/api/prompt").route(web::post().to(prompt_handler)))
                     .service(web::resource("/api/status").route(web::get().to(status_handler)))
             })
-            .bind("0.0.0.0:8080").unwrap()
+            .bind(("0.0.0.0", 8080)).unwrap()
             .run()
             .await
             .unwrap();
@@ -47,23 +46,28 @@ impl PappapChain {
     }
 }
 
-async fn prompt_handler(snn: web::Data<Arc<SNNCore>>, req: web::Json<serde_json::Value>) -> impl Responder {
+async fn prompt_handler(
+    snn: web::Data<Arc<SNNCore>>,
+    req: web::Json<serde_json::Value>,
+) -> impl Responder {
     let prompt = req["prompt"].as_str().unwrap_or("hello");
     let (lang, response) = snn.detect_and_translate(prompt).await;
     let tts = snn.text_to_speech(&response, &lang);
+
     HttpResponse::Ok().json(serde_json::json!({
         "response": response,
         "language": lang,
         "tts": tts,
-        "neurons": snn.neuron_count()
+        "neurons": snn.neuron_count(),
+        "status": "GENESIS NODE ALIVE"
     }))
 }
 
 async fn status_handler(snn: web::Data<Arc<SNNCore>>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
-        "status": "GENESIS NODE ALIVE",
+        "status": "PAPPAP AI CHAIN SNN IS ALIVE",
         "neurons": snn.neuron_count(),
         "power": snn.power(),
-        "message": "PappapAIChain SNN – Made in Vietnam"
+        "message": "Made in Vietnam – 22/11/2025"
     }))
 }
