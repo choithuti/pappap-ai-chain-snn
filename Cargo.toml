@@ -1,10 +1,9 @@
-# Cargo.toml – PHIÊN BẢN SIÊU NHẸ, COMPILE NHANH, CHẠY MƯỢT
 [package]
 name = "pappap-ai-chain-snn"
 version = "0.2.0"
 edition = "2021"
-description = "World's First Real SNN-Native Blockchain – Lightweight Edition"
-license = "MIT OR Apache-2.0"
+description = "World's First Real Spiking Neural Network Blockchain – Made in Vietnam"
+license = "MIT"
 
 [dependencies]
 tokio = { version = "1.38", features = ["full"] }
