@@ -1,7 +1,6 @@
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::sync::Arc;
-use parking_lot::RwLock;
 use tokio::sync::Notify;
 
 #[derive(Clone)]
@@ -11,7 +10,7 @@ pub struct SNNCore {
 
 struct SNNInner {
     neurons: Vec<Neuron>,
-    rng: RwLock<ChaCha20Rng>,
+    rng: parking_lot::RwLock<ChaCha20Rng>,
     config: SNNConfig,
     spike_notify: Notify,
 }
@@ -33,9 +32,9 @@ pub struct SNNConfig {
 impl SNNCore {
     pub fn new() -> Self {
         let cores = num_cpus::get() as f64;
-        let ram_gb = sys_info::mem_info().unwrap().total as f64 / 1e9;
+        let ram_gb = sys_info::mem_info().map(|m| m.total as f64 / 1e9).unwrap_or(8.0);
         let multiplier = if cfg!(feature = "high-neuron-mode") { 8.0 } else { 1.0 };
-        let neuron_count = (8000.0 * cores * ram_gb * multiplier).max(5000.0) as usize;
+        let neuron_count = ((8000.0 * cores * ram_gb * multiplier) as usize).max(5000);
 
         let mut rng = ChaCha20Rng::from_entropy();
         let neurons: Vec<_> = (0..neuron_count).map(|_| Neuron {
@@ -48,7 +47,7 @@ impl SNNCore {
         Self {
             inner: Arc::new(SNNInner {
                 neurons,
-                rng: RwLock::new(rng),
+                rng: parking_lot::RwLock::new(rng),
                 config: SNNConfig { neuron_count, power: cores * ram_gb },
                 spike_notify: Notify::new(),
             }),
@@ -61,10 +60,9 @@ impl SNNCore {
     pub async fn forward(&self, input_strength: f32) -> f32 {
         let mut rng = self.inner.rng.write();
         let now = chrono::Utc::now().timestamp_millis();
-        let neurons = &mut self.inner.neurons;
         let mut spikes = 0u32;
 
-        for n in neurons.iter_mut() {
+        for n in self.inner.neurons.iter_mut() {
             n.potential = n.potential * n.leak + input_strength * rng.gen_range(0.8..1.6);
             if n.potential > n.threshold {
                 spikes += 1;
@@ -78,19 +76,17 @@ impl SNNCore {
         rate
     }
 
-    // Language Detection + Auto Translate
     pub async fn detect_and_translate(&self, text: &str) -> (String, String) {
-        let lang = if text.contains("chào") || text.contains("xin") || text.contains("tự động") { "vi".to_string() }
-                   else if text.contains("hello") { "en".to_string() }
-                   else { "en".to_string() };
+        let lang = if text.contains("chào") || text.contains("xin") || text.contains("Việt") { "vi" }
+                   else { "en" };
 
-        let greeting = match lang.as_str() {
-            "vi" => "Xin chào! Tôi là PappapAIChain SNN",
-            "en" => "Hello! I am PappapAIChain SNN",
-            _ => "Hello!",
+        let response = if lang == "vi" {
+            "Xin chào! Tôi là PappapAIChain SNN – blockchain sống đầu tiên trên thế giới"
+        } else {
+            "Hello! I am PappapAIChain SNN – the world's first living blockchain"
         };
 
-        (lang, greeting.to_string())
+        (lang.to_string(), response.to_string())
     }
 
     pub fn text_to_speech(&self, text: &str, lang: &str) -> String {
