@@ -12,7 +12,9 @@ impl PappapChain {
     pub async fn new() -> Self {
         let snn = Arc::new(SNNCore::new());
         let bus = Arc::new(MessageBus::new());
-        let crypto = Arc::new(CryptoEngine::new(b"pappap2025snnblockchainkey32b!"));
+        // Key đúng 32 byte
+        let key: [u8; 32] = *b"pappap2025snnblockchainkey32b!\0\0";
+        let crypto = Arc::new(CryptoEngine::new(&key));
 
         println!("SNN Initialized: {} neurons | Power: {:.1}", snn.neuron_count(), snn.power());
 
@@ -59,9 +61,9 @@ async fn prompt_handler(snn: web::Data<Arc<SNNCore>>, req: web::Json<serde_json:
 
 async fn status_handler(snn: web::Data<Arc<SNNCore>>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
-        "status": "PAPPAP AI CHAIN SNN IS ALIVE",
+        "status": "GENESIS NODE ALIVE",
         "neurons": snn.neuron_count(),
         "power": snn.power(),
-        "uptime": "22/11/2025 – Forever"
+        "message": "PappapAIChain SNN – Made in Vietnam"
     }))
 }
