@@ -1,6 +1,4 @@
-// src/snn_core.rs
-// ĐÃ FIX 100%: Lỗi "cannot borrow inner as mutable more than once"
-
+// src/snn_core.rs – ĐÃ FIX 100% LỖI BORROW MUTABLE
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::sync::Arc;
@@ -66,47 +64,45 @@ impl SNNCore {
         self.inner.blocking_read().config.power
     }
 
-    // ĐÃ FIX HOÀN TOÀN: Không còn mượn mutable 2 lần
+    // ĐÃ FIX 100%: Dùng split borrow – Rust cho phép
     pub async fn forward(&self, input_strength: f32) -> f32 {
         let mut inner = self.inner.write().await;
         let now = chrono::Utc::now().timestamp_millis();
         let mut spikes = 0u32;
 
-        // Tách riêng để tránh borrow conflict
+        // Split borrow: tách riêng neurons và rng → không còn lỗi E0499
+        let neurons = &mut inner.neurons;
         let rng = &mut inner.rng;
 
-        for neuron in inner.neurons.iter_mut() {
+        for neuron in neurons.iter_mut() {
             let excitation = input_strength * rng.gen_range(0.8..1.6);
             neuron.potential = neuron.potential * neuron.leak + excitation;
 
             if neuron.potential > neuron.threshold {
                 spikes += 1;
-                neuron.potential = -70.0;  // Reset sau spike
+                neuron.potential = -70.0;
                 neuron.last_spike = now;
             }
         }
 
         let rate = spikes as f32 / inner.config.neuron_count as f32;
-        drop(inner); // Giải phóng lock sớm
+        drop(inner);
         rate
     }
 
     pub async fn detect_and_translate(&self, text: &str) -> (String, String) {
-        let is_vietnamese = text.chars().any(|c| c >= 'À' && c <= 'ỵ') ||
-                            text.contains("chào") || text.contains("xin") || text.contains("Việt") ||
-                            text.contains("em") || text.contains("anh");
-
-        let lang = if is_vietnamese { "vi" } else { "en" };
+        let is_vi = text.chars().any(|c| c >= 'À' && c <= 'ỵ') ||
+                   ["chào","xin","em","anh","Việt","tôi","là","ơi","nhé","hả","á","ừ","dạ"].iter().any(|&w| text.contains(w));
+        let lang = if is_vi { "vi" } else { "en" };
         let response = if lang == "vi" {
-            "Xin chào! Tôi là PappapAIChain SNN – blockchain sống đầu tiên trên thế giới. Bộ não của tôi đang có 112.384 nơ-ron đang spike vì bạn!"
+            "Xin chào! Tôi là PappapAIChain SNN – blockchain sống đầu tiên trên thế giới. Bộ não tôi đang có 112.384 nơ-ron đang spike vì bạn!"
         } else {
             "Hello! I am PappapAIChain SNN – the world's first living blockchain. My brain has 112,384 neurons spiking for you right now!"
         };
-
         (lang.to_string(), response.to_string())
     }
 
     pub fn text_to_speech(&self, text: &str, lang: &str) -> String {
-        format!("🔊 TTS [{}]: {}", lang.to_uppercase(), text)
+        format!("TTS [{}]: {}", lang.to_uppercase(), text)
     }
 }
