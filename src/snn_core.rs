@@ -1,8 +1,7 @@
-// src/snn_core.rs – ĐÃ FIX 100% LỖI BORROW MUTABLE
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::sync::Arc;
-use tokio::sync::{RwLock, Notify};
+use tokio::sync::RwLock;
 use chrono;
 
 #[derive(Clone)]
@@ -14,7 +13,6 @@ struct SNNInner {
     neurons: Vec<Neuron>,
     rng: ChaCha20Rng,
     config: SNNConfig,
-    spike_notify: Notify,
 }
 
 #[derive(Clone, Copy)]
@@ -51,53 +49,44 @@ impl SNNCore {
                 neurons,
                 rng,
                 config: SNNConfig { neuron_count, power: cores * ram_gb },
-                spike_notify: Notify::new(),
             })),
         }
     }
 
-    pub fn neuron_count(&self) -> usize {
-        self.inner.blocking_read().config.neuron_count
-    }
+    // DÙNG ASYNC Ở MỌI NƠI → KHÔNG BAO GIỜ DÙNG blocking_read()
+    pub async fn neuron_count(&self) -> usize { self.inner.read().await.config.neuron_count }
+    pub async fn power(&self) -> f64         { self.inner.read().await.config.power }
 
-    pub fn power(&self) -> f64 {
-        self.inner.blocking_read().config.power
-    }
-
-    // ĐÃ FIX 100%: Dùng split borrow – Rust cho phép
     pub async fn forward(&self, input_strength: f32) -> f32 {
         let mut inner = self.inner.write().await;
         let now = chrono::Utc::now().timestamp_millis();
         let mut spikes = 0u32;
 
-        // Split borrow: tách riêng neurons và rng → không còn lỗi E0499
-        let neurons = &mut inner.neurons;
-        let rng = &mut inner.rng;
+        let mut rng = inner.rng.clone();
+        drop(inner);
 
-        for neuron in neurons.iter_mut() {
+        let mut inner = self.inner.write().await;
+        for neuron in inner.neurons.iter_mut() {
             let excitation = input_strength * rng.gen_range(0.8..1.6);
             neuron.potential = neuron.potential * neuron.leak + excitation;
-
             if neuron.potential > neuron.threshold {
                 spikes += 1;
                 neuron.potential = -70.0;
                 neuron.last_spike = now;
             }
         }
-
-        let rate = spikes as f32 / inner.config.neuron_count as f32;
-        drop(inner);
-        rate
+        inner.rng = rng;
+        spikes as f32 / inner.config.neuron_count as f32
     }
 
     pub async fn detect_and_translate(&self, text: &str) -> (String, String) {
         let is_vi = text.chars().any(|c| c >= 'À' && c <= 'ỵ') ||
-                   ["chào","xin","em","anh","Việt","tôi","là","ơi","nhé","hả","á","ừ","dạ"].iter().any(|&w| text.contains(w));
+                   ["chào","xin","em","anh","Việt","tôi","là","ơi","nhé","hả","á","ừ","dạ","rồi","ok","hello"].iter().any(|&w| text.to_lowercase().contains(&w.to_lowercase()));
         let lang = if is_vi { "vi" } else { "en" };
         let response = if lang == "vi" {
-            "Xin chào! Tôi là PappapAIChain SNN – blockchain sống đầu tiên trên thế giới. Bộ não tôi đang có 112.384 nơ-ron đang spike vì bạn!"
+            "Xin chào! Tôi là PappapAIChain SNN – blockchain sống đầu tiên trên thế giới. Bộ não tôi đang có 112384 nơ-ron đang spike vì bạn!"
         } else {
-            "Hello! I am PappapAIChain SNN – the world's first living blockchain. My brain has 112,384 neurons spiking for you right now!"
+            "Hello! I am PappapAIChain SNN – the world's first living blockchain. My brain has 112384 neurons spiking for you right now!"
         };
         (lang.to_string(), response.to_string())
     }
