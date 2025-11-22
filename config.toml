@@ -1,0 +1,5 @@
+seed_node: true
+node_id: choithuti_GENESIS_001
+public_ip: 14.238.12.138
+port: 36331
+high_neuron_mode: true
