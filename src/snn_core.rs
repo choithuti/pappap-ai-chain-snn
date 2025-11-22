@@ -4,6 +4,31 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, Notify};
 
 #[derive(Clone)]
+// src/snn_core.rs – đoạn forward() đã được fix hoàn toàn
+pub async fn forward(&self, input_strength: f32) -> f32 {
+    let mut inner = self.inner.write().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut spikes = 0u32;
+
+    // Fix: Tách riêng RNG để tránh borrow 2 lần
+    let rng = &mut inner.rng;
+
+    for neuron in inner.neurons.iter_mut() {
+        // Dùng rng riêng để không mượn inner 2 lần
+        let rand_factor = rng.gen_range(0.8..1.6);
+        neuron.potential = neuron.potential * neuron.leak + input_strength * rand_factor;
+
+        if neuron.potential > neuron.threshold {
+            spikes += 1;
+            neuron.potential = -70.0;
+            neuron.last_spike = now;
+        }
+    }
+
+    let rate = spikes as f32 / inner.config.neuron_count as f32;
+    inner.spike_notify.notify_waiters();
+    rate
+}
 pub struct SNNCore {
     inner: Arc<RwLock<SNNInner>>,
 }
@@ -90,3 +115,4 @@ impl SNNCore {
         format!("TTS [{}]: {}", lang, text)
     }
 }
+
