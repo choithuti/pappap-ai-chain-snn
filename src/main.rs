@@ -12,6 +12,5 @@ async fn main() {
     println!("PAPPAP AI CHAIN SNN v0.2 – 22/11/2025");
     println!("   World's First Real Spiking Neural Network Blockchain\n");
 
-    let chain = chain::PappapChain::new().await;
-    chain.run().await;
+    chain::PappapChain::new().await.run().await;
 }
