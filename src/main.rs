@@ -1,16 +1,26 @@
-mod chain;
-mod snn_core;
-mod bus;
-mod crypto;
-mod managers;
+use aes_gcm::{Aes256Gcm, Key, Nonce, KeyInit, aead::Aead};
+use rand::RngCore;
 
-use tracing_subscriber::fmt::init;
+pub struct CryptoEngine {
+    cipher: Aes256Gcm,
+}
 
-#[tokio::main]
-async fn main() {
-    init();
-    println!("PAPPAP AI CHAIN SNN v0.2 – 22/11/2025");
-    println!("   World's First Real Spiking Neural Network Blockchain\n");
+impl CryptoEngine {
+    pub fn new(key: &[u8; 32]) -> Self {
+        let key = Key::<Aes256Gcm>::from_slice(key);
+        Self { cipher: Aes256Gcm::new(key) }
+    }
 
-    chain::PappapChain::new().await.run().await;
+    pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
+        let mut nonce = [0u8; 12];
+        rand::thread_rng().fill_bytes(&mut nonce);
+        let ciphertext = self.cipher.encrypt(Nonce::from_slice(&nonce), data).unwrap();
+        [nonce.to_vec(), ciphertext].concat()
+    }
+
+    pub fn decrypt(&self, data: &[u8]) -> Result<Vec<u8>, ()> {
+        if data.len() < 12 { return Err(()); }
+        let (nonce, ciphertext) = data.split_at(12);
+        self.cipher.decrypt(Nonce::from_slice(nonce), ciphertext).map_err(|_| ())
+    }
 }
