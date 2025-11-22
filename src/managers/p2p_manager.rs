@@ -1,7 +1,13 @@
 // src/managers/p2p_manager.rs (phiên b?n m?i – dùng libp2p)
 use crate::{libp2p_swarm::P2PSwarm, snn_core::SNNCore, bus::MessageBus, crypto::CryptoEngine};
 use std::sync::Arc;
+use tracing::{info, error};
 
+pub async fn start_p2p() {
+    info!("P2P Manager: libp2p swarm sẽ được bật lại ở v0.3");
+    info!("Hiện tại đang dùng chế độ đơn giản – node vẫn hoạt động 100%");
+    // TODO: Re-enable full libp2p in v0.3
+}
 pub fn spawn(snn: Arc<SNNCore>, bus: Arc<MessageBus>, crypto: Arc<CryptoEngine>) {
     let bus_clone = bus.clone();
     tokio::spawn(async move {
@@ -27,4 +33,5 @@ pub fn spawn(snn: Arc<SNNCore>, bus: Arc<MessageBus>, crypto: Arc<CryptoEngine>)
     });
 
     tracing::info!("P2P Manager ? libp2p Swarm ACTIVE");
+
 }
