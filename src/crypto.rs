@@ -7,7 +7,8 @@ pub struct CryptoEngine {
 
 impl CryptoEngine {
     pub fn new(key: &[u8; 32]) -> Self {
-        Self { cipher: Aes256Gcm::new(Key::from_slice(key)) }
+        let key = Key::<Aes256Gcm>::from_slice(key);
+        Self { cipher: Aes256Gcm::new(key) }
     }
 
     pub fn encrypt(&self, data: &[u8]) -> Vec<u8> {
