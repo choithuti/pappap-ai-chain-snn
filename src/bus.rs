@@ -19,7 +19,7 @@ impl MessageBus {
         self.tx.subscribe()
     }
 
-    pub fn send(&self, target: String, data: Vec<u8>) -> Result<(), broadcast::error::SendError<_>> {
-        self.tx.send((target, data))
+    pub fn send(&self, target: String, data: Vec<u8>) {
+        let _ = self.tx.send((target, data));
     }
 }
